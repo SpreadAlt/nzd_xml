@@ -44,6 +44,7 @@ RESILIENCE_CRIT_CHANCE_TO_CONSTANT_DAMAGE_REDUCTION_MULTIPLIER = 2.0;
 
 local tutorialData = {}
 
+-- Константы для системы сохранения выбора категории статистики
 PLAYERSTAT_DROPDOWN_OPTIONS = {
 	"PLAYERSTAT_BASE_STATS",
 	"PLAYERSTAT_MELEE_COMBAT", 
@@ -52,6 +53,7 @@ PLAYERSTAT_DROPDOWN_OPTIONS = {
 	"PLAYERSTAT_DEFENSES",
 };
 
+-- Маппинг констант на названия категорий
 local STAT_CATEGORY_NAMES = {
 	["PLAYERSTAT_BASE_STATS"] = PAPERDOLLFRAME_UPS,
 	["PLAYERSTAT_MELEE_COMBAT"] = PAPERDOLLFRAME_UPS2,
@@ -60,6 +62,7 @@ local STAT_CATEGORY_NAMES = {
 	["PLAYERSTAT_DEFENSES"] = PAPERDOLLFRAME_UPS5,
 };
 
+-- Маппинг констант на массивы статистик
 local STAT_CATEGORY_STATS = {
 	["PLAYERSTAT_BASE_STATS"] = { SPELL_STAT1_NAME, SPELL_STAT2_NAME, SPELL_STAT3_NAME, SPELL_STAT4_NAME, SPELL_STAT5_NAME, ARMOR },
 	["PLAYERSTAT_MELEE_COMBAT"] = { DAMAGE, WEAPON_SPEED, ATTACK_POWER, COMBAT_RATING_NAME7, MELEE_CRIT_CHANCE, COMBAT_RATING_NAME24 },
@@ -185,14 +188,25 @@ local NEWPANEL_SECTIONS = {
 	},
 	UPS2 = {
 	  title = PAPERDOLLFRAME_UPS2,
-	  rows = { DAMAGE, WEAPON_SPEED, ATTACK_POWER, MELEE_CRIT_CHANCE, ARMOR_PENETRATION, COMBAT_RATING_NAME24}, 
+	  rows = { DAMAGE, WEAPON_SPEED, ATTACK_POWER, MELEE_CRIT_CHANCE, ARMOR_PENETRATION, COMBAT_RATING_NAME7, COMBAT_RATING_NAME24}, 
 	},
-	UPS3 = { title = PAPERDOLLFRAME_UPS3, rows = { DAMAGE_RANGED, RANGED_SPEED, RANGED_AP, RANGED_CRIT_CHANCE, RANGED_HIT, COMBAT_RATING_NAME7 } },
+	UPS3 = { title = PAPERDOLLFRAME_UPS3, rows = { DAMAGE_RANGED, RANGED_SPEED, RANGED_AP, RANGED_CRIT_CHANCE, RANGED_HIT } },
 	UPS4 = { title = PAPERDOLLFRAME_UPS4, rows = { BONUS_DAMAGE, BONUS_HEALING, SPELL_HIT, SPELL_PENETRATION, SPELL_CRIT_CHANCE, SPELL_HASTE, MANA_REGEN, } },
 	UPS5 = { title = PAPERDOLLFRAME_UPS5, rows = { ARMOR, DEFENSE, STAT_DODGE, STAT_PARRY, STAT_BLOCK, STAT_RESILIENCE } },
   }
 
+-- Категории для меню (старая система - оставляем для совместимости)
+local StrengthenCategories = {
+    [1] = PAPERDOLLFRAME_UPS,   -- Основные
+    [2] = PAPERDOLLFRAME_UPS2,  -- Ближний бой
+    [3] = PAPERDOLLFRAME_UPS3,  -- Дальний бой
+    [4] = PAPERDOLLFRAME_UPS4,  -- Магия
+    [5] = PAPERDOLLFRAME_UPS5,  -- Защита
+}
+
+-- Функции для работы с сохранением выбора категории
 local function InitializeStatCategoryCVars()
+    -- Устанавливаем значения по умолчанию если они не заданы
     if GetCVar("playerStatLeftDropdown") == "" or GetCVar("playerStatRightDropdown") == "" then
         local temp, classFileName = UnitClass("player");
         classFileName = strupper(classFileName);
@@ -207,13 +221,16 @@ local function InitializeStatCategoryCVars()
     end
 end
 
+-- Функция для получения статистик по CVar значению
 local function GetStatsByCVar(cvarValue)
     return STAT_CATEGORY_STATS[cvarValue] or STAT_CATEGORY_STATS["PLAYERSTAT_BASE_STATS"]
 end
 
+-- Функция для получения названия категории по CVar значению
 local function GetCategoryNameByCVar(cvarValue)
     return STAT_CATEGORY_NAMES[cvarValue] or STAT_CATEGORY_NAMES["PLAYERSTAT_BASE_STATS"]
 end
+
 
 StrengthenStats = {
     PAPERDOLLFRAME_UPS,
@@ -228,15 +245,15 @@ StrengthenStats = {
     ATTACK_POWER,
     MELEE_CRIT_CHANCE,
     ARMOR_PENETRATION,
+    COMBAT_RATING_NAME7,
     COMBAT_RATING_NAME24,
     PAPERDOLLFRAME_UPS3,
     DAMAGE_RANGED,
     RANGED_SPEED,
     RANGED_AP,
     RANGED_CRIT_CHANCE,
-    RANGED_HIT,
-    COMBAT_RATING_NAME7,
     ARMOR_PENETRATION,
+    RANGED_HIT,
     PAPERDOLLFRAME_UPS4,
     BONUS_DAMAGE,
     BONUS_HEALING,
@@ -433,7 +450,7 @@ function PaperDollFrame_SetLevel()
 	local race = UnitRace("player")
 	local _, faction = UnitFactionGroup("player")
 
-	CharacterLevelText:SetFormattedText(PAPERDOLLFRAME_PLAYER_INFO, classColorString, classDisplayName, level, race, faction)
+	CharacterLevelText:SetFormattedText(PAPERDOLLFRAME_PLAYER_INFO, level, classColorString, classDisplayName, race, faction)
 
 	-- Set it for the honor frame while we at it
 	HonorLevelText:SetFormattedText(PLAYER_LEVEL, UnitLevel("player"), UnitRace("player"), UnitClass("player"));
@@ -807,17 +824,9 @@ function PaperDollFrame_SetResilience(index)
 	local maxRatingBonus = GetMaxCombatRatingBonus(lowestRating);
 	local lowestRatingBonus = GetCombatRatingBonus(lowestRating);
 
-	PaperDollFrame_SetLabelAndText(index, STAT_RESILIENCE, minResilience, 0);
+	PaperDollFrame_SetLabelAndText(index, STAT_RESILIENCE, lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_CONSTANT_DAMAGE_REDUCTION_MULTIPLIER, 1);
 	tooltip_m = HIGHLIGHT_FONT_COLOR_CODE..format(PAPERDOLLFRAME_TOOLTIP_FORMAT, STAT_RESILIENCE).." "..minResilience..FONT_COLOR_CODE_CLOSE;
-	StrengthenStats2[index] = tostring(minResilience);
-	
-	local critReduction = lowestRatingBonus;
-	local damageReduction = min(lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_DAMAGE_REDUCTION_MULTIPLIER, maxRatingBonus);
-	local constantReduction = lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_CONSTANT_DAMAGE_REDUCTION_MULTIPLIER;
-	
-	tooltip2 = "Снижает вероятность того, что противник нанесет вам критический удар, на " .. format("%.2f", critReduction) .. "%\n" ..
-	          "Понижает эффективность похищения маны и урон, получаемый от критических ударов, на " .. format("%.2f", damageReduction) .. "%\n" ..
-	          "Снижает весь урон, получаемый от других игроков, их питомцев и прислужников, еще на " .. format("%.2f", constantReduction) .. "%.";
+	tooltip2 = format(RESILIENCE_TOOLTIP, lowestRatingBonus, min(lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_DAMAGE_REDUCTION_MULTIPLIER, maxRatingBonus), lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_CONSTANT_DAMAGE_REDUCTION_MULTIPLIER);
     
     StrengthenStats4[index] = tooltip_m;
     StrengthenStats3[index] = tooltip2;
@@ -1307,41 +1316,15 @@ function PaperDollFrame_SetSpellCritChance(index)
 		minCrit = min(minCrit, spellCrit[i]);
 		--statFrame.spellCrit[i] = spellCrit;
 	end
-
-	local SCHOOL_NAMES = {
-	  [2] = "Свет",
-	  [3] = "Огонь",
-	  [4] = "Природа",
-	  [5] = "Лёд",
-	  [6] = "Тьма",
-	  [7] = "Тайная магия",
-	}
-
-	local SCHOOL_ICONS = {
-  	  [2] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon2",
-  	  [3] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon3",
- 	  [4] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon4",
- 	  [5] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon5",
- 	  [6] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon6",
-  	  [7] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon7",
-	}
-
-	local lines = {}
-	for s = 2, MAX_SPELL_SCHOOLS do
-  		local c = GetSpellCritChance(s)
-		local name = SCHOOL_NAMES[s] or ("Школа " .. s)
-		local icon = SCHOOL_ICONS[s] and ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(SCHOOL_ICONS[s]) or ""
-  		lines[#lines+1] = string.format("%s%.2f%% (%s)", icon, c, name)
-	end
 	-- Add agility contribution
 	--minCrit = minCrit + GetSpellCritChanceFromIntellect();
+	minCrit = format("%.2f%%", minCrit);
 	--text:SetText(minCrit);
-    local minCritText = string.format("%.2f%%", (math.floor((minCrit or 0)*100 + 0.5)/100))
-	StrengthenStats2[index] = minCritText
+    StrengthenStats2[index] = minCrit;
     tooltip_title[index] = HIGHLIGHT_FONT_COLOR_CODE..COMBAT_RATING_NAME11..": "..GetCombatRating(11)..FONT_COLOR_CODE_CLOSE;
     StrengthenStats4[index] = tooltip_title[index];
     
-    tooltip[index] = table.concat(lines, "\n");
+    tooltip[index] = SPELL_CRIT_CHANCE;
     StrengthenStats3[index] = tooltip[index];
 	--statFrame.minCrit = minCrit;
 	--statFrame:Show();
@@ -1353,7 +1336,7 @@ function PaperDollFrame_SetMeleeCritChance(index)
 
     StrengthenStats2[index] = critChance;
 	--[[statFrame.--]]tooltip_title[index] = HIGHLIGHT_FONT_COLOR_CODE..format(PAPERDOLLFRAME_TOOLTIP_FORMAT, MELEE_CRIT_CHANCE).." "..critChance..FONT_COLOR_CODE_CLOSE;
-	--[[statFrame.--]]tooltip[index] = format(CR_CRIT_MELEE_TOOLTIP, GetCombatRating(CR_CRIT_MELEE), GetCombatRatingBonus(CR_CRIT_MELEE));
+	tooltip[index] = format(CR_CRIT_MELEE_TOOLTIP, GetCombatRating(CR_CRIT_MELEE), GetCombatRatingBonus(CR_CRIT_MELEE));
     StrengthenStats3[index] = tooltip[index];
     StrengthenStats4[index] = tooltip_title[index];
 end
@@ -1363,7 +1346,7 @@ function PaperDollFrame_SetRangedCritChance(index)
 	critChance = format("%.2f%%", critChance);
 	StrengthenStats2[index] = critChance;
 	--[[statFrame.--]]tooltip_title[index] = HIGHLIGHT_FONT_COLOR_CODE..format(PAPERDOLLFRAME_TOOLTIP_FORMAT, MELEE_CRIT_CHANCE).." "..critChance..FONT_COLOR_CODE_CLOSE;
-	--[[statFrame.--]]tooltip[index] = format(CR_CRIT_RANGED_TOOLTIP, GetCombatRating(CR_CRIT_RANGED), GetCombatRatingBonus(CR_CRIT_RANGED));
+	tooltip[index] = format(CR_CRIT_RANGED_TOOLTIP, GetCombatRating(CR_CRIT_RANGED), GetCombatRatingBonus(CR_CRIT_RANGED));
     StrengthenStats3[index] = tooltip[index];
     StrengthenStats4[index] = tooltip_title[index];
 end
@@ -2039,6 +2022,7 @@ function UpdatePaperdollStats()
             tooltip[i] = "";
             tooltip_title[i] = "";
 
+			-- ОБНОВЛЯЕМ ТЕКУЩИЙ РАЗДЕЛ
 			if (StrengthenStats[i] == PAPERDOLLFRAME_UPS) then
 				section = "MELEE"
 			elseif (StrengthenStats[i] == PAPERDOLLFRAME_UPS3) then
@@ -2069,10 +2053,11 @@ function UpdatePaperdollStats()
 					if section == "MELEE" then
 						PaperDollFrame_SetRating(i, CR_HIT_MELEE)
 					elseif section == "RANGED" then
-						PaperDollFrame_SetRating(i, CR_HIT_RANGED)
+						PaperDollFrame_SetRating(i, CR_HIT_MELEE)
 					elseif section == "SPELL" then
 						PaperDollFrame_SetRating(i, CR_HIT_SPELL)
 					else
+						-- на всякий случай по умолчанию ближний
 						PaperDollFrame_SetRating(i, CR_HIT_MELEE)
 					end
                 elseif (StrengthenStats[i] == COMBAT_RATING_NAME24) then
@@ -3181,7 +3166,7 @@ function RefreshInspectFrameHack()
 		
 		InspectLevelText:ClearAllPoints()
 		InspectLevelText:SetPoint("TOP", 0, -50)
-		InspectLevelText:SetFormattedText(PAPERDOLLFRAME_PLAYER_INFO, classColorString, classDisplayName, level, race, faction)
+		InspectLevelText:SetFormattedText(PAPERDOLLFRAME_PLAYER_INFO, level, classColorString, classDisplayName, race, faction)
 		InspectNameText:SetSize(209, 16)
 		InspectNameText:SetText(UnitPVPName(unit))
 	end
@@ -3439,7 +3424,7 @@ function PaperDollFormatStatPet(name, base, posBuff, negBuff, frame, textString)
 	local text = HIGHLIGHT_FONT_COLOR_CODE..format(PAPERDOLLFRAME_TOOLTIP_FORMAT,name).." "..effective;
 	if ( ( posBuff == 0 ) and ( negBuff == 0 ) ) then
 		text = text..FONT_COLOR_CODE_CLOSE;
-		textString:SetText(tostring(effective));
+		textString:SetText(effective);
 	else
 		if ( posBuff > 0 or negBuff < 0 ) then
 			text = text.." ("..base..FONT_COLOR_CODE_CLOSE;
@@ -3457,14 +3442,34 @@ function PaperDollFormatStatPet(name, base, posBuff, negBuff, frame, textString)
 		-- if there is a negative buff then show the main number in red, even if there are
 		-- positive buffs. Otherwise show the number in green
 		if ( negBuff < 0 ) then
-			textString:SetText(RED_FONT_COLOR_CODE..tostring(effective)..FONT_COLOR_CODE_CLOSE);
+			textString:SetText(RED_FONT_COLOR_CODE..effective..FONT_COLOR_CODE_CLOSE);
 		else
-			textString:SetText(GREEN_FONT_COLOR_CODE..tostring(effective)..FONT_COLOR_CODE_CLOSE);
+			textString:SetText(GREEN_FONT_COLOR_CODE..effective..FONT_COLOR_CODE_CLOSE);
 		end
 	end
 	frame.tooltip = text;
 end
 
+-- категории
+local StrengthenCategories = {
+    [1] = {
+        { PAPERDOLLFRAME_UPS, { SPELL_STAT1_NAME, SPELL_STAT2_NAME, SPELL_STAT3_NAME, SPELL_STAT4_NAME, SPELL_STAT5_NAME, ARMOR }},
+        { PAPERDOLLFRAME_UPS2, { DAMAGE, WEAPON_SPEED, ATTACK_POWER, COMBAT_RATING_NAME7, MELEE_CRIT_CHANCE, COMBAT_RATING_NAME24 }},
+        { PAPERDOLLFRAME_UPS3, { DAMAGE_RANGED, RANGED_SPEED, RANGED_AP, COMBAT_RATING_NAME7, RANGED_CRIT_CHANCE }},
+        { PAPERDOLLFRAME_UPS4, { BONUS_DAMAGE, BONUS_HEALING, SPELL_HIT, SPELL_CRIT_CHANCE, SPELL_HASTE, MANA_REGEN }},
+        { PAPERDOLLFRAME_UPS5, { ARMOR, DEFENSE, STAT_DODGE, STAT_PARRY, STAT_BLOCK, STAT_RESILIENCE }}
+    },
+    [2] = {
+        { PAPERDOLLFRAME_UPS, { SPELL_STAT1_NAME, SPELL_STAT2_NAME, SPELL_STAT3_NAME, SPELL_STAT4_NAME, SPELL_STAT5_NAME, ARMOR }},
+        { PAPERDOLLFRAME_UPS2, { DAMAGE, WEAPON_SPEED, ATTACK_POWER, COMBAT_RATING_NAME7, MELEE_CRIT_CHANCE, COMBAT_RATING_NAME24 }},
+        { PAPERDOLLFRAME_UPS3, { DAMAGE_RANGED, RANGED_SPEED, RANGED_AP, COMBAT_RATING_NAME7, RANGED_CRIT_CHANCE }},
+        { PAPERDOLLFRAME_UPS4, { BONUS_DAMAGE, BONUS_HEALING, SPELL_HIT, SPELL_CRIT_CHANCE, SPELL_HASTE, MANA_REGEN }},
+        { PAPERDOLLFRAME_UPS5, { ARMOR, DEFENSE, STAT_DODGE, STAT_PARRY, STAT_BLOCK, STAT_RESILIENCE }}
+    }
+}
+
+
+-- Создание строк под контейнер
 local function CreateStatLine(parent, index)
     local f = CreateFrame("Frame", nil, parent)
     f:SetSize(228, 15)
@@ -3487,6 +3492,7 @@ local function CreateStatLine(parent, index)
     f.Value = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     f.Value:SetPoint("RIGHT", -8, 0)
 
+    -- тултипы по индексу характеристики
     f:SetScript("OnEnter", function(self)
         local idx = self.statIndex
         if idx and tooltip and tooltip_title then
@@ -3507,9 +3513,11 @@ local function CreateStatLine(parent, index)
     return f
 end
 
+-- вывод характеристик в контейнер, используя реальные данные PaperDoll
 function UpdateStatContainer(container, stats)
     if not container.lines then container.lines = {} end
 
+    -- пересчитать таблицы значений и тултипов
     if type(UpdatePaperdollStats) == "function" then
         UpdatePaperdollStats()
     end
@@ -3521,14 +3529,17 @@ function UpdateStatContainer(container, stats)
         end
         local line = container.lines[i]
 
+        -- найти индекс этой характеристики в глобальном списке StrengthenStats
         local foundIndex
         if StrengthenStats then
+            -- сначала ищем с позиции searchFrom, чтобы корректно обрабатывать дубликаты надписей
             for s = searchFrom, #StrengthenStats do
                 if StrengthenStats[s] == statName then
                     foundIndex = s
                     break
                 end
             end
+            -- если не нашли с текущей позиции, попробуем с начала (на случай изменения порядка)
             if not foundIndex then
                 for s = 1, searchFrom - 1 do
                     if StrengthenStats[s] == statName then
@@ -3544,18 +3555,21 @@ function UpdateStatContainer(container, stats)
             searchFrom = foundIndex + 1
         end
 
+        -- текст слева: берём из StrengthenStats, если нашли; иначе — входной ярлык
         if foundIndex then
             line.Label:SetText(StrengthenStats[foundIndex] or statName or "")
         else
             line.Label:SetText(statName or "")
         end
 
+        -- значение справа: из StrengthenStats2
         if foundIndex and StrengthenStats2 then
             line.Value:SetText(StrengthenStats2[foundIndex] or "")
         else
             line.Value:SetText("")
         end
 
+        -- визуальный стиль как у Faux: фон, альтернация, размеры, шрифты
         line:SetSize(228, 12)
         if line.Background then
             line.Background:SetTexCoord(0, 0.1572265625, 0.7705078125, 0.787109375)
@@ -3572,20 +3586,24 @@ function UpdateStatContainer(container, stats)
         container.lines[i]:Show()
     end
 
+    -- скрыть лишние строки
     for i = #stats+1, #container.lines do
         container.lines[i]:Hide()
     end
 end
 
+-- обработка выбора из меню
 local function StrengthenMenu_OnClick(self, arg1, arg2, checked)
     local header, container = arg1.header, arg1.container
     header.Label:SetText(arg1.name)
+    -- запоминаем выбранную категорию для автообновления
     header.selectedName = arg1.name
     header.selectedStats = arg1.stats
     header.selectedContainer = container
-    header.selectedCVar = arg1.cvarValue
+    header.selectedCVar = arg1.cvarValue -- сохраняем CVar значение
     UpdateStatContainer(container, arg1.stats)
     
+    -- Сохраняем выбор в CVar для левой или правой панели
     if header == _G.Stat1Header then
         SetCVar("playerStatLeftDropdown", arg1.cvarValue)
     elseif header == _G.Stat2Header then
@@ -3593,12 +3611,15 @@ local function StrengthenMenu_OnClick(self, arg1, arg2, checked)
     end
 end
 
+-- построение меню
+-- единый фрейм меню и владелец для удобного тоггла
 if not StrengthenContextMenu then
     StrengthenContextMenu = CreateFrame("Frame", "StrengthenContextMenu", UIParent, "UIDropDownMenuTemplate")
 end
 local StrengthenMenuOwner
 
 function ShowStrengthenMenu(header, which)
+    -- toggle: если уже открыто на этом же заголовке — закрываем
     if UIDROPDOWNMENU_OPEN_MENU == StrengthenContextMenu and DropDownList1 and DropDownList1:IsShown() and StrengthenMenuOwner == header then
         CloseDropDownMenus()
         StrengthenMenuOwner = nil
@@ -3608,6 +3629,7 @@ function ShowStrengthenMenu(header, which)
     CloseDropDownMenus()
 
     local menu = {}
+    -- Используем новую систему с CVar
     for _, cvarValue in ipairs(PLAYERSTAT_DROPDOWN_OPTIONS) do
         local categoryName = GetCategoryNameByCVar(cvarValue)
         local stats = GetStatsByCVar(cvarValue)
@@ -3628,6 +3650,7 @@ function ShowStrengthenMenu(header, which)
     StrengthenMenuOwner = header
 end
 
+-- автообновление значений при изменении статов
 local StatAutoRefresher = CreateFrame("Frame")
 StatAutoRefresher:RegisterEvent("UNIT_STATS")
 StatAutoRefresher:RegisterEvent("UNIT_ATTACK_POWER")
@@ -3652,6 +3675,7 @@ StatAutoRefresher:SetScript("OnEvent", function(self, event, ...)
         UpdateStatContainer(_G.Stat2Header.selectedContainer, _G.Stat2Header.selectedStats)
     end
 end)
+-- Инициализация системы сохранения выбора
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("VARIABLES_LOADED")
@@ -3659,6 +3683,7 @@ f:SetScript("OnEvent", function(self, event)
     if event == "VARIABLES_LOADED" then
         InitializeStatCategoryCVars()
     elseif event == "PLAYER_ENTERING_WORLD" then
+        -- Загружаем сохраненные значения для левой панели
         if _G.Stat1Header and _G.Stat1FrameContainer then
             local leftCVar = GetCVar("playerStatLeftDropdown")
             local leftName = GetCategoryNameByCVar(leftCVar)
@@ -3671,6 +3696,7 @@ f:SetScript("OnEvent", function(self, event)
                 cvarValue = leftCVar
             })
         end
+        -- Загружаем сохраненные значения для правой панели
         if _G.Stat2Header and _G.Stat2FrameContainer then
             local rightCVar = GetCVar("playerStatRightDropdown")
             local rightName = GetCategoryNameByCVar(rightCVar)
