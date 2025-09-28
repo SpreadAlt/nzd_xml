@@ -188,21 +188,15 @@ local NEWPANEL_SECTIONS = {
 	},
 	UPS2 = {
 	  title = PAPERDOLLFRAME_UPS2,
-	  rows = { DAMAGE, WEAPON_SPEED, ATTACK_POWER, MELEE_CRIT_CHANCE, ARMOR_PENETRATION, COMBAT_RATING_NAME7, COMBAT_RATING_NAME24}, 
+	  rows = { DAMAGE, WEAPON_SPEED, ATTACK_POWER, MELEE_CRIT_CHANCE, ARMOR_PENETRATION, COMBAT_RATING_NAME24}, 
 	},
-	UPS3 = { title = PAPERDOLLFRAME_UPS3, rows = { DAMAGE_RANGED, RANGED_SPEED, RANGED_AP, RANGED_CRIT_CHANCE, RANGED_HIT } },
+	UPS3 = { title = PAPERDOLLFRAME_UPS3, rows = { DAMAGE_RANGED, RANGED_SPEED, RANGED_AP, RANGED_CRIT_CHANCE, RANGED_HIT, COMBAT_RATING_NAME7  } },
 	UPS4 = { title = PAPERDOLLFRAME_UPS4, rows = { BONUS_DAMAGE, BONUS_HEALING, SPELL_HIT, SPELL_PENETRATION, SPELL_CRIT_CHANCE, SPELL_HASTE, MANA_REGEN, } },
 	UPS5 = { title = PAPERDOLLFRAME_UPS5, rows = { ARMOR, DEFENSE, STAT_DODGE, STAT_PARRY, STAT_BLOCK, STAT_RESILIENCE } },
   }
 
 -- Категории для меню (старая система - оставляем для совместимости)
-local StrengthenCategories = {
-    [1] = PAPERDOLLFRAME_UPS,   -- Основные
-    [2] = PAPERDOLLFRAME_UPS2,  -- Ближний бой
-    [3] = PAPERDOLLFRAME_UPS3,  -- Дальний бой
-    [4] = PAPERDOLLFRAME_UPS4,  -- Магия
-    [5] = PAPERDOLLFRAME_UPS5,  -- Защита
-}
+
 
 -- Функции для работы с сохранением выбора категории
 local function InitializeStatCategoryCVars()
@@ -450,7 +444,7 @@ function PaperDollFrame_SetLevel()
 	local race = UnitRace("player")
 	local _, faction = UnitFactionGroup("player")
 
-	CharacterLevelText:SetFormattedText(PAPERDOLLFRAME_PLAYER_INFO, level, classColorString, classDisplayName, race, faction)
+	CharacterLevelText:SetFormattedText(PAPERDOLLFRAME_PLAYER_INFO, classColorString, classDisplayName, level, race, faction)
 
 	-- Set it for the honor frame while we at it
 	HonorLevelText:SetFormattedText(PLAYER_LEVEL, UnitLevel("player"), UnitRace("player"), UnitClass("player"));
@@ -826,7 +820,15 @@ function PaperDollFrame_SetResilience(index)
 
 	PaperDollFrame_SetLabelAndText(index, STAT_RESILIENCE, lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_CONSTANT_DAMAGE_REDUCTION_MULTIPLIER, 1);
 	tooltip_m = HIGHLIGHT_FONT_COLOR_CODE..format(PAPERDOLLFRAME_TOOLTIP_FORMAT, STAT_RESILIENCE).." "..minResilience..FONT_COLOR_CODE_CLOSE;
-	tooltip2 = format(RESILIENCE_TOOLTIP, lowestRatingBonus, min(lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_DAMAGE_REDUCTION_MULTIPLIER, maxRatingBonus), lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_CONSTANT_DAMAGE_REDUCTION_MULTIPLIER);
+		StrengthenStats2[index] = tostring(minResilience);
+	
+	local critReduction = lowestRatingBonus;
+	local damageReduction = min(lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_DAMAGE_REDUCTION_MULTIPLIER, maxRatingBonus);
+	local constantReduction = lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_CONSTANT_DAMAGE_REDUCTION_MULTIPLIER;
+	
+	tooltip2 = "Снижает вероятность того, что противник нанесет вам критический удар, на " .. format("%.2f", critReduction) .. "%\n" ..
+	          "Понижает эффективность похищения маны и урон, получаемый от критических ударов, на " .. format("%.2f", damageReduction) .. "%\n" ..
+	          "Снижает весь урон, получаемый от других игроков, их питомцев и прислужников, еще на " .. format("%.2f", constantReduction) .. "%.";
     
     StrengthenStats4[index] = tooltip_m;
     StrengthenStats3[index] = tooltip2;
@@ -1316,15 +1318,41 @@ function PaperDollFrame_SetSpellCritChance(index)
 		minCrit = min(minCrit, spellCrit[i]);
 		--statFrame.spellCrit[i] = spellCrit;
 	end
+
+	local SCHOOL_NAMES = {
+	  [2] = "Свет",
+	  [3] = "Огонь",
+	  [4] = "Природа",
+	  [5] = "Лёд",
+	  [6] = "Тьма",
+	  [7] = "Тайная магия",
+	}
+
+	local SCHOOL_ICONS = {
+  	  [2] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon2",
+  	  [3] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon3",
+ 	  [4] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon4",
+ 	  [5] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon5",
+ 	  [6] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon6",
+  	  [7] = "Interface\\PaperDollInfoFrame\\SpellSchoolIcon7",
+	}
+
+	local lines = {}
+	for s = 2, MAX_SPELL_SCHOOLS do
+  		local c = GetSpellCritChance(s)
+		local name = SCHOOL_NAMES[s] or ("Школа " .. s)
+		local icon = SCHOOL_ICONS[s] and ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(SCHOOL_ICONS[s]) or ""
+  		lines[#lines+1] = string.format("%s%.2f%% (%s)", icon, c, name)
+	end
 	-- Add agility contribution
 	--minCrit = minCrit + GetSpellCritChanceFromIntellect();
-	minCrit = format("%.2f%%", minCrit);
 	--text:SetText(minCrit);
-    StrengthenStats2[index] = minCrit;
+    local minCritText = string.format("%.2f%%", (math.floor((minCrit or 0)*100 + 0.5)/100))
+	StrengthenStats2[index] = minCritText
     tooltip_title[index] = HIGHLIGHT_FONT_COLOR_CODE..COMBAT_RATING_NAME11..": "..GetCombatRating(11)..FONT_COLOR_CODE_CLOSE;
     StrengthenStats4[index] = tooltip_title[index];
     
-    tooltip[index] = SPELL_CRIT_CHANCE;
+    tooltip[index] = table.concat(lines, "\n");
     StrengthenStats3[index] = tooltip[index];
 	--statFrame.minCrit = minCrit;
 	--statFrame:Show();
@@ -2053,7 +2081,7 @@ function UpdatePaperdollStats()
 					if section == "MELEE" then
 						PaperDollFrame_SetRating(i, CR_HIT_MELEE)
 					elseif section == "RANGED" then
-						PaperDollFrame_SetRating(i, CR_HIT_MELEE)
+						PaperDollFrame_SetRating(i, CR_HIT_RANGED)
 					elseif section == "SPELL" then
 						PaperDollFrame_SetRating(i, CR_HIT_SPELL)
 					else
@@ -3166,7 +3194,7 @@ function RefreshInspectFrameHack()
 		
 		InspectLevelText:ClearAllPoints()
 		InspectLevelText:SetPoint("TOP", 0, -50)
-		InspectLevelText:SetFormattedText(PAPERDOLLFRAME_PLAYER_INFO, level, classColorString, classDisplayName, race, faction)
+		InspectLevelText:SetFormattedText(PAPERDOLLFRAME_PLAYER_INFO, classColorString, classDisplayName, level, race, faction)
 		InspectNameText:SetSize(209, 16)
 		InspectNameText:SetText(UnitPVPName(unit))
 	end
@@ -3424,7 +3452,7 @@ function PaperDollFormatStatPet(name, base, posBuff, negBuff, frame, textString)
 	local text = HIGHLIGHT_FONT_COLOR_CODE..format(PAPERDOLLFRAME_TOOLTIP_FORMAT,name).." "..effective;
 	if ( ( posBuff == 0 ) and ( negBuff == 0 ) ) then
 		text = text..FONT_COLOR_CODE_CLOSE;
-		textString:SetText(effective);
+		textString:SetText(tostring(effective));
 	else
 		if ( posBuff > 0 or negBuff < 0 ) then
 			text = text.." ("..base..FONT_COLOR_CODE_CLOSE;
@@ -3442,32 +3470,13 @@ function PaperDollFormatStatPet(name, base, posBuff, negBuff, frame, textString)
 		-- if there is a negative buff then show the main number in red, even if there are
 		-- positive buffs. Otherwise show the number in green
 		if ( negBuff < 0 ) then
-			textString:SetText(RED_FONT_COLOR_CODE..effective..FONT_COLOR_CODE_CLOSE);
+			textString:SetText(RED_FONT_COLOR_CODE..tostring(effective)..FONT_COLOR_CODE_CLOSE);
 		else
-			textString:SetText(GREEN_FONT_COLOR_CODE..effective..FONT_COLOR_CODE_CLOSE);
+			textString:SetText(GREEN_FONT_COLOR_CODE..tostring(effective)..FONT_COLOR_CODE_CLOSE);
 		end
 	end
 	frame.tooltip = text;
 end
-
--- категории
-local StrengthenCategories = {
-    [1] = {
-        { PAPERDOLLFRAME_UPS, { SPELL_STAT1_NAME, SPELL_STAT2_NAME, SPELL_STAT3_NAME, SPELL_STAT4_NAME, SPELL_STAT5_NAME, ARMOR }},
-        { PAPERDOLLFRAME_UPS2, { DAMAGE, WEAPON_SPEED, ATTACK_POWER, COMBAT_RATING_NAME7, MELEE_CRIT_CHANCE, COMBAT_RATING_NAME24 }},
-        { PAPERDOLLFRAME_UPS3, { DAMAGE_RANGED, RANGED_SPEED, RANGED_AP, COMBAT_RATING_NAME7, RANGED_CRIT_CHANCE }},
-        { PAPERDOLLFRAME_UPS4, { BONUS_DAMAGE, BONUS_HEALING, SPELL_HIT, SPELL_CRIT_CHANCE, SPELL_HASTE, MANA_REGEN }},
-        { PAPERDOLLFRAME_UPS5, { ARMOR, DEFENSE, STAT_DODGE, STAT_PARRY, STAT_BLOCK, STAT_RESILIENCE }}
-    },
-    [2] = {
-        { PAPERDOLLFRAME_UPS, { SPELL_STAT1_NAME, SPELL_STAT2_NAME, SPELL_STAT3_NAME, SPELL_STAT4_NAME, SPELL_STAT5_NAME, ARMOR }},
-        { PAPERDOLLFRAME_UPS2, { DAMAGE, WEAPON_SPEED, ATTACK_POWER, COMBAT_RATING_NAME7, MELEE_CRIT_CHANCE, COMBAT_RATING_NAME24 }},
-        { PAPERDOLLFRAME_UPS3, { DAMAGE_RANGED, RANGED_SPEED, RANGED_AP, COMBAT_RATING_NAME7, RANGED_CRIT_CHANCE }},
-        { PAPERDOLLFRAME_UPS4, { BONUS_DAMAGE, BONUS_HEALING, SPELL_HIT, SPELL_CRIT_CHANCE, SPELL_HASTE, MANA_REGEN }},
-        { PAPERDOLLFRAME_UPS5, { ARMOR, DEFENSE, STAT_DODGE, STAT_PARRY, STAT_BLOCK, STAT_RESILIENCE }}
-    }
-}
-
 
 -- Создание строк под контейнер
 local function CreateStatLine(parent, index)
